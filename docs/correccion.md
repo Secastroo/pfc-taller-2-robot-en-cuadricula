@@ -277,3 +277,215 @@ s_0 = (a_1, \text{List}(a_2, \ldots, a_k)) \implies a_1 = f(\text{List}(a_1))
 $k$ iteraciones, $l = \text{List}()$.
 
 Esto implica que $P_f(L) == \text{maxAux}(L.\text{head}, L.\text{tail}) == f(L)$
+
+
+<!-- Arriba va el ejemplo original (factorial y máximo), sin cambios -->
+
+---
+
+# Informe de corrección: Taller 2, un robot en la cuadrícula
+
+## Definición de referencia de `ejecutar`
+
+Para justificar `componer` se usan los dos casos de `ejecutar` sobre
+secuencias, tal como están implementados en `RobotCuadricula.scala`:
+
+```scala
+case Secuencia(Nil) => e
+case Secuencia(primera :: resto) =>
+  ejecutar(ejecutar(e, primera), Secuencia(resto))
+```
+
+En notación matemática:
+
+```math
+\text{ejecutar}(e, \text{Secuencia}(\text{Nil})) = e
+```
+
+```math
+\text{ejecutar}(e, \text{Secuencia}(c :: cs)) = \text{ejecutar}(\text{ejecutar}(e, c), \text{Secuencia}(cs))
+```
+
+Es decir, una secuencia ejecuta sus órdenes de izquierda a derecha, pasando el
+estado resultante de una a la siguiente.
+
+## Punto 1: `girar`
+
+> TODO: responsable del punto 1.
+
+## Punto 2: `ejecutar`
+
+> TODO: responsable del punto 2.
+
+## Punto 3: `cuantasBasicas` y `profundidad`
+
+### Especificación de `cuantasBasicas`
+
+Sea $B : \text{Orden} \to \mathbb{N}$ la función que cuenta cuántos `Avanzar` y
+`Girar` se ejecutan, contando repeticiones:
+
+```math
+B(\text{Avanzar}(n)) = 1 \qquad B(\text{Girar}(s)) = 1
+```
+
+```math
+B(\text{Repetir}(v, o)) = \max(v, 0) \ast B(o)
+```
+
+```math
+B(\text{Secuencia}(\text{List}(o_1, \ldots, o_k))) = \sum_{i=1}^{k} B(o_i)
+```
+
+Se quiere demostrar:
+
+```math
+\forall o \in \text{Orden} : \text{cuantasBasicas}(o) == B(o)
+```
+
+**Método:** inducción estructural sobre `Orden`. Hay dos casos base (`Avanzar`
+y `Girar`) y dos casos de inducción (`Repetir` y `Secuencia`).
+
+**Caso base `Avanzar(n)`:**
+
+```math
+\text{cuantasBasicas}(\text{Avanzar}(n)) \rightarrow 1 = B(\text{Avanzar}(n))
+```
+
+**Caso base `Girar(s)`:**
+
+```math
+\text{cuantasBasicas}(\text{Girar}(s)) \rightarrow 1 = B(\text{Girar}(s))
+```
+
+**Caso de inducción `Repetir(v, o)`:** la hipótesis de inducción (HI) es
+$\text{cuantasBasicas}(o) == B(o)$. Hay dos posibilidades:
+
+- Si $v \leq 0$, la guarda `if veces <= 0` devuelve $0$, y
+  $B(\text{Repetir}(v, o)) = \max(v, 0) \ast B(o) = 0 \ast B(o) = 0$.
+- Si $v > 0$, se devuelve $v \ast \text{cuantasBasicas}(o)$. Por la HI,
+  esto es $v \ast B(o) = \max(v, 0) \ast B(o) = B(\text{Repetir}(v, o))$.
+
+**Caso de inducción `Secuencia(L)`:** la HI es que
+$\text{cuantasBasicas}(o_i) == B(o_i)$ para cada $o_i$ de $L$. Se demuestra
+por inducción sobre la longitud $k$ de la lista:
+
+- $k = 0$: $\text{cuantasBasicas}(\text{Secuencia}(\text{Nil})) \rightarrow 0 = B(\text{Secuencia}(\text{Nil}))$,
+  porque la suma vacía es 0.
+- $k \geq 1$, con $L = o_1 :: \text{List}(o_2, \ldots, o_k)$:
+
+```math
+\text{cuantasBasicas}(\text{Secuencia}(L)) \rightarrow \text{cuantasBasicas}(o_1) + \text{cuantasBasicas}(\text{Secuencia}(\text{List}(o_2, \ldots, o_k)))
+```
+
+Por la HI sobre $o_1$ y por la HI sobre la lista más corta, esto es
+$B(o_1) + \sum_{i=2}^{k} B(o_i) = \sum_{i=1}^{k} B(o_i) = B(\text{Secuencia}(L))$.
+
+Concluimos por inducción estructural que
+$\forall o \in \text{Orden} : \text{cuantasBasicas}(o) == B(o)$.
+
+**Terminación:** en cada llamada recursiva el argumento es una subexpresión
+estricta de la orden original (el cuerpo del `Repetir`, un elemento de la
+lista o la cola de la lista), y el tipo es finito, así que la recursión
+termina.
+
+### Especificación de `profundidad`
+
+Sea $P : \text{Orden} \to \mathbb{N}$:
+
+```math
+P(\text{Avanzar}(n)) = P(\text{Girar}(s)) = 1 \qquad P(\text{Repetir}(v, o)) = 1 + P(o)
+```
+
+```math
+P(\text{Secuencia}(\text{Nil})) = 1 \qquad P(\text{Secuencia}(\text{List}(o_1, \ldots, o_k))) = 1 + \max_{i} P(o_i), \; k \geq 1
+```
+
+Se quiere demostrar $\forall o \in \text{Orden} : \text{profundidad}(o) == P(o)$.
+
+**Lema (función auxiliar `mayorP`).** Si la HI vale para cada elemento de una
+lista $L = \text{List}(o_1, \ldots, o_k)$, entonces
+
+```math
+\text{mayorP}(L) = \begin{cases} 0 & k = 0 \\ \max_i P(o_i) & k \geq 1 \end{cases}
+```
+
+*Prueba por inducción sobre $k$:*
+
+- $k = 0$: `mayorP(Nil)` devuelve $0$.
+- $k \geq 1$: `mayorP(o_1 :: resto)` calcula `actual = profundidad(o_1)` y
+  `resto = mayorP(List(o_2, ..., o_k))`, y devuelve el mayor de los dos. Por
+  la HI, $\text{actual} = P(o_1)$. Por la hipótesis sobre la lista más corta,
+  $\text{resto} = \max_{i \geq 2} P(o_i)$, que es $0$ si $k = 1$. Como
+  $P(o_1) \geq 1 > 0$, el mayor de los dos es $\max_{i \geq 1} P(o_i)$. $\square$
+
+**Caso base `Avanzar` y `Girar`:** devuelven $1 = P(\cdot)$.
+
+**Caso de inducción `Repetir(v, o)`:** por la HI,
+$\text{profundidad}(\text{Repetir}(v, o)) \rightarrow 1 + \text{profundidad}(o) = 1 + P(o) = P(\text{Repetir}(v, o))$.
+
+**Caso de inducción `Secuencia(L)`:**
+
+- Si $L = \text{Nil}$, se devuelve $1 = P(\text{Secuencia}(\text{Nil}))$.
+- Si $L \neq \text{Nil}$, se devuelve $1 + \text{mayorP}(L)$, que por el lema y
+  la HI es $1 + \max_i P(o_i) = P(\text{Secuencia}(L))$.
+
+Concluimos por inducción estructural que
+$\forall o \in \text{Orden} : \text{profundidad}(o) == P(o)$.
+
+## Punto 4: `componer`, `rutina`, `aplicarA` y `transformar`
+
+### `componer`
+
+Se quiere demostrar que la orden compuesta equivale a ejecutar sus partes en
+orden:
+
+```math
+\forall e \in \text{Estado},\ \forall o_1, o_2 \in \text{Orden} : \text{ejecutar}(e, \text{componer}(o_1, o_2)) == \text{ejecutar}(\text{ejecutar}(e, o_1), o_2)
+```
+
+`componer` no es recursiva, así que no necesita inducción. Basta con el
+modelo de sustitución y la definición de `ejecutar` sobre secuencias:
+
+```math
+\text{ejecutar}(e, \text{componer}(o_1, o_2)) \rightarrow \text{ejecutar}(e, \text{Secuencia}(\text{List}(o_1, o_2)))
+```
+
+```math
+\rightarrow \text{ejecutar}(\text{ejecutar}(e, o_1), \text{Secuencia}(\text{List}(o_2)))
+```
+
+```math
+\rightarrow \text{ejecutar}(\text{ejecutar}(\text{ejecutar}(e, o_1), o_2), \text{Secuencia}(\text{Nil}))
+```
+
+```math
+\rightarrow \text{ejecutar}(\text{ejecutar}(e, o_1), o_2)
+```
+
+El último paso usa $\text{ejecutar}(e', \text{Secuencia}(\text{Nil})) = e'$.
+
+Por lo tanto, ejecutar `componer(o1, o2)` equivale a ejecutar `o1` y luego
+`o2` sobre el estado resultante.
+
+**Consecuencia sobre las otras medidas.** Por los resultados del punto 3:
+
+```math
+\text{cuantasBasicas}(\text{componer}(o_1, o_2)) = B(o_1) + B(o_2)
+```
+
+```math
+\text{profundidad}(\text{componer}(o_1, o_2)) = 1 + \max(P(o_1), P(o_2))
+```
+
+**Ejemplo:** con $e = (0, 0, \text{Norte})$,
+$o_1 = \text{Avanzar}(2)$ y $o_2 = \text{Girar}(\text{Derecha})$:
+$\text{ejecutar}(e, o_1) = (0, 2, \text{Norte})$ y
+$\text{ejecutar}((0, 2, \text{Norte}), o_2) = (0, 2, \text{Este})$, que es
+el resultado de `ejecutar(e, componer(o1, o2))`.
+
+> TODO: responsable de `rutina`, `aplicarA` y `transformar`.
+
+## Punto 5: `simplificar`
+
+> TODO: responsable del punto 5. Debe mostrar, regla por regla, que para toda
+> orden `o` y todo estado `e`, `ejecutar(e, o) == ejecutar(e, simplificar(o))`.
