@@ -34,8 +34,24 @@ class RobotCuadricula {
   // Punto 2 -------------------------------------------------------------------
 
   /** El estado que resulta de aplicarle la orden al estado dado. */
-  def ejecutar(e: Estado, o: Orden): Estado = ???
-
+  def ejecutar(e: Estado, o: Orden): Estado = {
+    o match {
+      case Avanzar(n) =>
+        e.mira match {
+          case Norte => Estado(e.x, e.y + n, e.mira)
+          case Sur => Estado(e.x, e.y - n, e.mira)
+          case Este => Estado(e.x + n, e.y, e.mira)
+          case Oeste => Estado(e.x - n, e.y, e.mira)
+        }
+      case Girar(sentido) => Estado(e.x, e.y, girar(e.mira, sentido))
+      case Repetir(veces, _) if veces <= 0 => e
+      case Repetir(veces, orden) =>
+        ejecutar(ejecutar(e, orden), Repetir(veces - 1, orden))
+      case Secuencia(Nil) => e
+      case Secuencia(primera :: resto) =>
+        ejecutar(ejecutar(e, primera), Secuencia(resto))
+    }
+  }
   // Punto 3 -------------------------------------------------------------------
 
   /** Cuántos Avanzar y Girar llega a ejecutar la orden, contando repeticiones. */
