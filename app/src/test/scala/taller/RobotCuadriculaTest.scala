@@ -196,4 +196,70 @@ class RobotCuadriculaTest extends AnyFunSuite {
   test("simplificar: el anidamiento interior también se reduce") {
     assert(simplificar(Repetir(3, Repetir(1, Avanzar(2)))) == Repetir(3, Avanzar(2)))
   }
+
+
+
+/**
+ * Casos de prueba propios del equipo (rúbrica: al menos 5 por punto, distintos
+ * de los del enunciado y de los del material).
+ */
+
+// Punto 1 -------------------------------------------------------------------
+
+// TODO: responsable del punto 1 (mínimo 5 casos propios).
+
+// Punto 2 -------------------------------------------------------------------
+
+// TODO: responsable del punto 2 (mínimo 5 casos propios).
+
+  // Punto 3 -------------------------------------------------------------------
+
+  test("propia cuantasBasicas: repetir con veces negativas no ejecuta nada") {
+    assert(cuantasBasicas(Repetir(-3, Avanzar(1))) == 0)
+  }
+
+  test("propia cuantasBasicas: repeticiones anidadas se multiplican") {
+    assert(cuantasBasicas(Repetir(3, Repetir(2, Avanzar(1)))) == 6)
+  }
+
+  test("propia cuantasBasicas: secuencia que contiene una repetición") {
+    assert(cuantasBasicas(Secuencia(List(cuadrado, Avanzar(5)))) == 9)
+  }
+
+  test("propia profundidad: secuencias anidadas, con una secuencia vacía al fondo") {
+    val o = Secuencia(List(Avanzar(1), Secuencia(List(Girar(Derecha), Secuencia(Nil)))))
+    assert(profundidad(o) == 3)
+  }
+
+  test("propia profundidad: la rama más honda en el medio de la secuencia") {
+    val o = Secuencia(List(Avanzar(1), Repetir(2, Repetir(2, Avanzar(1))), Girar(Izquierda)))
+    assert(profundidad(o) == 4)
+  }
+
+  // Punto 4 -------------------------------------------------------------------
+
+  test("propia componer: el orden cambia el estado final") {
+    val primeroAvanza = ejecutar(inicial, componer(Avanzar(1), Girar(Derecha)))
+    val primeroGira = ejecutar(inicial, componer(Girar(Derecha), Avanzar(1)))
+    assert(primeroAvanza == Estado(0, 1, Este))
+    assert(primeroGira == Estado(1, 0, Este))
+  }
+
+  test("propia componer: es asociativa respecto al estado final") {
+    val a = Avanzar(3)
+    val b = Girar(Izquierda)
+    val c = Avanzar(2)
+    val e = Estado(2, -1, Sur)
+    val izq = ejecutar(e, componer(componer(a, b), c))
+    val der = ejecutar(e, componer(a, componer(b, c)))
+    assert(izq == der)
+    assert(izq == Estado(4, -4, Este))
+  }
+
+  // TODO: responsable de rutina, aplicarA y transformar (mínimo 5 casos propios
+// para el punto 4 en conjunto).
+
+// Punto 5 -------------------------------------------------------------------
+
+// TODO: responsable del punto 5 (mínimo 5 casos propios).
 }
