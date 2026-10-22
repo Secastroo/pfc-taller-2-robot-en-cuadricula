@@ -97,7 +97,11 @@ class RobotCuadricula {
     Repetir(veces, Secuencia(List(Avanzar(pasos), Girar(giro))))
 
   /** La misma orden ejecutada sobre cada uno de los estados. */
-  def aplicarA(estados: List[Estado], o: Orden): List[Estado] = ???
+  def aplicarA(estados: List[Estado], o: Orden): List[Estado] = estados
+    match {
+      case Nil => Nil
+      case e :: resto => ejecutar(e, o) :: aplicarA(resto, o)
+    }
 
   /** Reemplaza cada orden básica por f(orden), respetando la estructura de las compuestas. */
   def transformar(o: Orden, f: Orden => Orden): Orden = ???
