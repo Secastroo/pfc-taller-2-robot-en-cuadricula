@@ -93,7 +93,8 @@ class RobotCuadricula {
   def componer(o1: Orden, o2: Orden): Orden = Secuencia(List(o1,o2))
 
   /** Currificada: fijados los pasos y el giro, queda una función de las veces. */
-  def rutina(pasos: Int)(giro: Sentido)(veces: Int): Orden = ???
+  def rutina(pasos: Int)(giro: Sentido)(veces: Int): Orden =
+    Repetir(veces, Secuencia(List(Avanzar(pasos), Girar(giro))))
 
   /** La misma orden ejecutada sobre cada uno de los estados. */
   def aplicarA(estados: List[Estado], o: Orden): List[Estado] = ???
