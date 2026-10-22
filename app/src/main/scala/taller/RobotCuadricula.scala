@@ -104,7 +104,21 @@ class RobotCuadricula {
     }
 
   /** Reemplaza cada orden básica por f(orden), respetando la estructura de las compuestas. */
-  def transformar(o: Orden, f: Orden => Orden): Orden = ???
+  def transformar(o: Orden, f: Orden => Orden): Orden = {
+    // Transforma cada orden de la lista, conservando el orden de la lista.
+    def transformarTodas(ordenes: List[Orden]): List[Orden] =
+      ordenes match {
+        case Nil => Nil
+        case primera :: resto => transformar(primera, f) :: transformarTodas(resto)
+      }
+
+    o match {
+      case Avanzar(_) => f(o)
+      case Girar(_) => f(o)
+      case Repetir(veces, orden) => Repetir(veces, transformar(orden, f))
+      case Secuencia(ordenes) => Secuencia(transformarTodas(ordenes))
+    }
+  }
 
   // Punto 5 -------------------------------------------------------------------
 
