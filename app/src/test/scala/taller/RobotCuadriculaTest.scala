@@ -263,6 +263,18 @@ class RobotCuadriculaTest extends AnyFunSuite {
       Repetir(3, Secuencia(List(Avanzar(2), Girar(Izquierda)))))
   }
 
+  test("propia rutina: ejecutada deja media vuelta o un cuadrado de lado tres") {
+    assert(ejecutar(inicial, rutina(2)(Derecha)(2)) == Estado(2, 2, Sur))
+    assert(ejecutar(inicial, rutina(3)(Izquierda)(4)) == inicial)
+  }
+
+  test("propia aplicarA: una orden compuesta sobre estados que miran a lados distintos") {
+    val estados = List(Estado(1, 1, Este), Estado(-2, 0, Oeste), Estado(0, 0, Sur))
+    val o = Secuencia(List(Avanzar(3), Girar(Izquierda)))
+    assert(aplicarA(estados, o) ==
+      List(Estado(4, 1, Norte), Estado(-5, 0, Sur), Estado(0, -3, Este)))
+  }
+
   // Punto 5 -------------------------------------------------------------------
 
 // TODO: responsable del punto 5 (mínimo 5 casos propios).
