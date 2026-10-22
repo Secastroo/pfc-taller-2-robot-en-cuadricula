@@ -256,10 +256,14 @@ class RobotCuadriculaTest extends AnyFunSuite {
     assert(izq == Estado(4, -4, Este))
   }
 
-  // TODO: responsable de rutina, aplicarA y transformar (mínimo 5 casos propios
+  // TODO: responsable de rutina, aplicarA y transformar (mínimo 5 casos propios)
 // para el punto 4 en conjunto).
+  test("propia rutina: dos pasos a la izquierda, tres veces, arma la orden esperada") {
+    assert(rutina(2)(Izquierda)(3) ==
+      Repetir(3, Secuencia(List(Avanzar(2), Girar(Izquierda)))))
+  }
 
-// Punto 5 -------------------------------------------------------------------
+  // Punto 5 -------------------------------------------------------------------
 
 // TODO: responsable del punto 5 (mínimo 5 casos propios).
 }
