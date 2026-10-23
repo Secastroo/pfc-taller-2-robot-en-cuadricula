@@ -206,11 +206,67 @@ class RobotCuadriculaTest extends AnyFunSuite {
 
 // Punto 1 -------------------------------------------------------------------
 
-// TODO: responsable del punto 1 (mínimo 5 casos propios).
+  test("propia girar: Este a la derecha da Sur") { assert(girar(Este, Derecha) == Sur) }
+  test("propia girar: Este a la izquierda da Norte") { assert(girar(Este, Izquierda) == Norte) }
+  test("propia girar: Sur a la derecha da Oeste") { assert(girar(Sur, Derecha) == Oeste) }
+  test("propia girar: Oeste a la izquierda da Sur") { assert(girar(Oeste, Izquierda) == Sur) }
+
+  test("propia girar: cuatro giros a la izquierda recorren el círculo y vuelven al Norte") {
+    val g1 = girar(Norte, Izquierda)
+    val g2 = girar(g1, Izquierda)
+    val g3 = girar(g2, Izquierda)
+    val g4 = girar(g3, Izquierda)
+    assert(List(g1, g2, g3, g4) == List(Oeste, Sur, Este, Norte))
+  }
+
+  test("propia girar: tres giros a la derecha equivalen a uno a la izquierda") {
+    val todas = List(Norte, Este, Sur, Oeste)
+    assert(todas.forall(d => girar(girar(girar(d, Derecha), Derecha), Derecha) == girar(d, Izquierda)))
+  }
 
 // Punto 2 -------------------------------------------------------------------
 
-// TODO: responsable del punto 2 (mínimo 5 casos propios).
+  test("propia ejecutar: girar cambia la dirección y no mueve al robot") {
+    assert(ejecutar(Estado(2, -3, Sur), Girar(Izquierda)) == Estado(2, -3, Este))
+  }
+
+  test("propia ejecutar: retroceder mirando al sur aumenta y") {
+    assert(ejecutar(Estado(5, 5, Sur), Avanzar(-2)) == Estado(5, 7, Sur))
+  }
+
+  test("propia ejecutar: repetir con veces negativas no hace nada") {
+    assert(ejecutar(Estado(1, 2, Oeste), Repetir(-3, Avanzar(7))) == Estado(1, 2, Oeste))
+  }
+
+  test("propia ejecutar: repetir un avance suma los pasos") {
+    assert(ejecutar(inicial, Repetir(3, Avanzar(2))) == Estado(0, 6, Norte))
+  }
+
+  test("propia ejecutar: repetir con una repetición y un giro adentro") {
+    val o = Repetir(2, Secuencia(List(Repetir(2, Avanzar(1)), Girar(Derecha))))
+    assert(ejecutar(inicial, o) == Estado(2, 2, Sur))
+  }
+
+  test("propia ejecutar: la escalera sube tres y se corre tres") {
+    val escalera = Repetir(3, Secuencia(List(Avanzar(1), Girar(Derecha), Avanzar(1), Girar(Izquierda))))
+    assert(ejecutar(inicial, escalera) == Estado(3, 3, Norte))
+  }
+
+  test("propia ejecutar: una secuencia anidada da lo mismo que la secuencia plana") {
+    val anidada = Secuencia(List(Avanzar(1), Secuencia(List(Girar(Derecha), Avanzar(2)))))
+    val plana = Secuencia(List(Avanzar(1), Girar(Derecha), Avanzar(2)))
+    assert(ejecutar(inicial, anidada) == Estado(2, 1, Este))
+    assert(ejecutar(inicial, plana) == Estado(2, 1, Este))
+  }
+
+  test("propia ejecutar: cuatro giros a la derecha dejan al robot como estaba") {
+    assert(ejecutar(Estado(3, 4, Sur), Repetir(4, Girar(Derecha))) == Estado(3, 4, Sur))
+  }
+
+  test("propia ejecutar: ir, dar media vuelta y volver lleva al origen mirando al sur") {
+    val ida = Secuencia(List(Avanzar(5), Girar(Izquierda), Girar(Izquierda), Avanzar(5)))
+    assert(ejecutar(inicial, ida) == Estado(0, 0, Sur))
+  }
 
   // Punto 3 -------------------------------------------------------------------
 

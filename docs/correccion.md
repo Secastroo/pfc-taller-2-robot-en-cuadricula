@@ -311,11 +311,170 @@ estado resultante de una a la siguiente.
 
 ## Punto 1: `girar`
 
-> TODO: responsable del punto 1.
+### Especificación
+
+Se numeran las direcciones en el sentido de las agujas del reloj con la función
+$\iota : \text{Direccion} \to \{0, 1, 2, 3\}$:
+
+```math
+\iota(\text{Norte}) = 0 \quad \iota(\text{Este}) = 1 \quad \iota(\text{Sur}) = 2 \quad \iota(\text{Oeste}) = 3
+```
+
+Girar a la derecha avanza una posición en ese orden y girar a la izquierda
+retrocede una (equivale a avanzar tres módulo 4). Sea $g$ la función que describe
+el enunciado:
+
+```math
+\iota(g(d, \text{Derecha})) = (\iota(d) + 1) \bmod 4 \qquad \iota(g(d, \text{Izquierda})) = (\iota(d) + 3) \bmod 4
+```
+
+Se quiere demostrar:
+
+```math
+\forall d \in \text{Direccion}, \forall s \in \text{Sentido} : \text{girar}(d, s) == g(d, s)
+```
+
+**Método:** el dominio es finito, con $4 \times 2 = 8$ casos, así que se
+demuestra por análisis exhaustivo de casos, uno por cada caso del `match`:
+
+| $d$ | $\iota(d)$ | $g(d, \text{Derecha})$ | `girar(d, Derecha)` | $g(d, \text{Izquierda})$ | `girar(d, Izquierda)` |
+|-----|------------|------------------------|---------------------|--------------------------|-----------------------|
+| Norte | 0 | $\iota^{-1}(1) = $ Este | Este | $\iota^{-1}(3) = $ Oeste | Oeste |
+| Este | 1 | $\iota^{-1}(2) = $ Sur | Sur | $\iota^{-1}(0) = $ Norte | Norte |
+| Sur | 2 | $\iota^{-1}(3) = $ Oeste | Oeste | $\iota^{-1}(1) = $ Este | Este |
+| Oeste | 3 | $\iota^{-1}(0) = $ Norte | Norte | $\iota^{-1}(2) = $ Sur | Sur |
+
+En las 8 filas el resultado del programa coincide con $g$. Por lo tanto
+$\forall d, \forall s : \text{girar}(d, s) == g(d, s)$.
+
+**Totalidad y terminación:** `Direccion` y `Sentido` son `sealed`, así que las
+8 parejas posibles están cubiertas y el `match` nunca falla. La función no es
+recursiva: termina en un paso.
+
+**Propiedades que se siguen de la especificación:**
+
+```math
+\iota(g(g(d, \text{Derecha}), \text{Izquierda})) = (\iota(d) + 1 + 3) \bmod 4 = \iota(d)
+```
+
+es decir, un giro y su contrario se cancelan. Y
+
+```math
+\iota(g^4(d, \text{Derecha})) = (\iota(d) + 4) \bmod 4 = \iota(d)
+```
+
+es decir, cuatro giros al mismo lado devuelven la dirección inicial. Estas dos
+propiedades las verifican las pruebas de `girar`.
 
 ## Punto 2: `ejecutar`
 
-> TODO: responsable del punto 2.
+### Especificación
+
+Sea $E : \text{Estado} \times \text{Orden} \to \text{Estado}$ la función que
+describe el enunciado. Se define con el desplazamiento de cada dirección:
+
+```math
+\delta(\text{Norte}) = (0, 1) \quad \delta(\text{Este}) = (1, 0) \quad \delta(\text{Sur}) = (0, -1) \quad \delta(\text{Oeste}) = (-1, 0)
+```
+
+```math
+E((x, y, m), \text{Avanzar}(n)) = (x + n \ast \delta_x(m),\ y + n \ast \delta_y(m),\ m)
+```
+
+```math
+E((x, y, m), \text{Girar}(s)) = (x, y, g(m, s))
+```
+
+donde $g$ es la función de giro del punto 1. Para las órdenes compuestas, sea
+$f_o(e) = E(e, o)$ y sea $f^k$ la composición de $f$ consigo misma $k$ veces:
+
+```math
+f^0(e) = e \qquad f^{k+1}(e) = f^k(f(e))
+```
+
+```math
+E(e, \text{Repetir}(v, o)) = f_o^{\max(v, 0)}(e)
+```
+
+```math
+E(e, \text{Secuencia}(\text{Nil})) = e \qquad E(e, \text{Secuencia}(c :: cs)) = E(E(e, c), \text{Secuencia}(cs))
+```
+
+Se quiere demostrar:
+
+```math
+\forall e \in \text{Estado}, \forall o \in \text{Orden} : \text{ejecutar}(e, o) == E(e, o)
+```
+
+**Método:** inducción estructural sobre `Orden`, con dos casos base (`Avanzar` y
+`Girar`) y dos casos de inducción (`Repetir` y `Secuencia`). La hipótesis de
+inducción (HI) es que `ejecutar(e', o') == E(e', o')` para todo estado $e'$ y
+toda orden $o'$ contenida en $o$.
+
+**Caso base `Avanzar(n)`:** sea $e = (x, y, m)$. Según $m$, `ejecutar` devuelve:
+
+| $m$ | `ejecutar` devuelve | $E$ da (con $\delta(m)$) |
+|-----|---------------------|--------------------------|
+| Norte | $(x, y + n, m)$ | $(x + n \ast 0,\ y + n \ast 1,\ m)$ |
+| Sur | $(x, y - n, m)$ | $(x + n \ast 0,\ y + n \ast (-1),\ m)$ |
+| Este | $(x + n, y, m)$ | $(x + n \ast 1,\ y + n \ast 0,\ m)$ |
+| Oeste | $(x - n, y, m)$ | $(x + n \ast (-1),\ y + n \ast 0,\ m)$ |
+
+En los cuatro casos los resultados coinciden, también cuando $n$ es negativo.
+Como $m$ solo toma esos cuatro valores, el análisis es exhaustivo.
+
+**Caso base `Girar(s)`:**
+
+```math
+\text{ejecutar}((x, y, m), \text{Girar}(s)) \rightarrow (x, y, \text{girar}(m, s)) = (x, y, g(m, s)) = E((x, y, m), \text{Girar}(s))
+```
+
+La igualdad $\text{girar}(m, s) = g(m, s)$ es el teorema del punto 1.
+
+**Caso de inducción `Repetir(v, o)`:** la HI es que $\text{ejecutar}(e', o) == f_o(e')$ para todo $e'$.
+Se demuestra por inducción sobre $k = \max(v, 0)$ que
+$\text{ejecutar}(e, \text{Repetir}(v, o)) == f_o^{k}(e)$ para todo $e$:
+
+- $v \leq 0$: la guarda `if veces <= 0` devuelve $e$, y $f_o^{0}(e) = e$.
+- $v = k + 1 \geq 1$:
+
+```math
+\text{ejecutar}(e, \text{Repetir}(k+1, o)) \rightarrow \text{ejecutar}(\text{ejecutar}(e, o), \text{Repetir}(k, o))
+```
+
+Por la HI de la orden, $\text{ejecutar}(e, o) = f_o(e)$. Por la hipótesis
+interna sobre $k$, aplicada al estado $f_o(e)$, el resultado es $f_o^{k}(f_o(e))$,
+que por definición es $f_o^{k+1}(e) = E(e, \text{Repetir}(k+1, o))$.
+
+**Caso de inducción `Secuencia(L)`:** la HI es que $\text{ejecutar}(e', o_i) == E(e', o_i)$
+para cada $o_i$ de $L$ y todo $e'$. Se demuestra por inducción sobre la longitud
+$k$ de $L$:
+
+- $k = 0$: `ejecutar` devuelve $e$, y $E(e, \text{Secuencia}(\text{Nil})) = e$.
+- $k \geq 1$, con $L = o_1 :: L'$:
+
+```math
+\text{ejecutar}(e, \text{Secuencia}(L)) \rightarrow \text{ejecutar}(\text{ejecutar}(e, o_1), \text{Secuencia}(L'))
+```
+
+Por la HI sobre $o_1$, $\text{ejecutar}(e, o_1) = E(e, o_1)$. Por la HI sobre la
+lista más corta $L'$, el resultado es $E(E(e, o_1), \text{Secuencia}(L')) = E(e, \text{Secuencia}(L))$.
+
+Concluimos por inducción estructural que
+$\forall e, \forall o : \text{ejecutar}(e, o) == E(e, o)$.
+
+**Terminación:** sea $m$ la medida $m(\text{Avanzar}(n)) = m(\text{Girar}(s)) = 1$,
+$m(\text{Repetir}(v, o)) = 1 + \max(v, 0) \ast m(o)$ y
+$m(\text{Secuencia}(L)) = 1 + \sum_{o_i \in L} m(o_i)$. Cada llamada recursiva
+tiene un argumento con $m$ estrictamente menor:
+
+- el cuerpo $o$ de `Repetir(v, o)` con $v \geq 1$ cumple $m(o) < 1 + v \ast m(o)$;
+- `Repetir(v - 1, o)` cumple $1 + (v-1) \ast m(o) < 1 + v \ast m(o)$ porque $m(o) \geq 1$;
+- la primera orden $c$ y la cola $cs$ de `Secuencia(c :: cs)` cumplen
+  $m(c) < m(\text{Secuencia}(c :: cs))$ y $m(\text{Secuencia}(cs)) < m(\text{Secuencia}(c :: cs))$.
+
+Como $m$ toma valores en los naturales, la recursión termina. Se supone que
+la aritmética de `Int` no se desborda.
 
 ## Punto 3: `cuantasBasicas` y `profundidad`
 
