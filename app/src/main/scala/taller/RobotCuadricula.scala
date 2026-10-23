@@ -120,8 +120,50 @@ class RobotCuadricula {
     }
   }
 
+
   // Punto 5 -------------------------------------------------------------------
 
   /** Una orden equivalente más corta, con las reglas del enunciado. */
-  def simplificar(o: Orden): Orden = ???
+  def simplificar(o: Orden): Orden = { /** Una orden equivalente más corta, con las reglas del enunciado. */
+
+    // si hay dos Avanzar seguidos, los sumo en uno solo
+    def juntar(lista: List[Orden]): List[Orden] = lista match {
+      case Avanzar(a) :: Avanzar(b) :: resto => juntar(Avanzar(a + b) :: resto)
+      case x :: resto => x :: juntar(resto)
+      case Nil => Nil
+    }
+
+    // Hace una pasada de simplificación por toda la orden
+    def unaPasada(orden: Orden): Orden = orden match {
+      case Avanzar(0) => Secuencia(Nil)
+      case Avanzar(n) => Avanzar(n)
+      case Girar(s) => Girar(s)
+      case Repetir(veces, _) if veces <= 0 => Secuencia(Nil)
+      case Repetir(1, x) => unaPasada(x)
+      case Repetir(veces, x) => unaPasada(x) match {
+        case Secuencia(Nil) => Secuencia(Nil)
+        case y => Repetir(veces, y)
+      }
+      case Secuencia(ordenes) => {
+        val simples = ordenes.map(unaPasada)
+        val sinNada = simples.filter(x => x != Secuencia(Nil))
+        juntar(sinNada) match {
+          case Nil => Secuencia(Nil)
+          case List(x) => x
+          case lista => Secuencia(lista)
+        }
+      }
+    }
+
+    // Repito las pasadas hasta que la orden ya no cambie
+    def hastaQueNoCambie(orden: Orden): Orden = {
+      val nueva = unaPasada(orden)
+      nueva match {
+        case `orden` => orden
+        case _ => hastaQueNoCambie(nueva)
+      }
+    }
+
+    hastaQueNoCambie(o)
+  }
 }

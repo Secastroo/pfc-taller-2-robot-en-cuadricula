@@ -668,7 +668,109 @@ Y un ejemplo en que H no se cumple: duplicar los avances. $\text{Avanzar}(2n) \n
 
 Por último, las cuatro funciones del punto terminan siempre, porque cada llamado recursivo trabaja sobre una parte estrictamente más pequeña de la entrada: `aplicarA` sobre la cola de la lista, y `transformar` sobre la orden de adentro de un `Repetir` o sobre un elemento de una `Secuencia`. `rutina` y `componer` no son recursivas.
 
-## Punto 5: `simplificar`
+## Punto 5 Informe de corrección: `simplificar`
 
-> TODO: responsable del punto 5. Debe mostrar, regla por regla, que para toda
-> orden `o` y todo estado `e`, `ejecutar(e, o) == ejecutar(e, simplificar(o))`.
+## Notación
+
+Un estado es una terna $e = (x, y, d)$ con $d \in \{N, E, S, O\}$ y vectores unitarios
+
+$$\delta(N) = (0, 1), \quad \delta(E) = (1, 0), \quad \delta(S) = (0, -1), \quad \delta(O) = (-1, 0)$$
+
+Se escribe $\mathcal{E}(o, e)$ para el estado que devuelve `ejecutar(e, o)`, y $o_1 \equiv o_2$ cuando
+
+$$\forall e.\ \mathcal{E}(o_1, e) = \mathcal{E}(o_2, e)$$
+
+Las definiciones de `ejecutar` que se usan son:
+
+$$\mathcal{E}(\texttt{Avanzar}(n), (x, y, d)) = (x + n\,\delta_x(d),\ y + n\,\delta_y(d),\ d)$$
+
+$$\mathcal{E}(\texttt{Repetir}(v, o), e) = \begin{cases} e & \text{si } v \le 0 \\ \mathcal{E}(\texttt{Repetir}(v-1, o), \mathcal{E}(o, e)) & \text{si } v > 0 \end{cases}$$
+
+$$\mathcal{E}(\texttt{Secuencia}(\text{Nil}), e) = e, \qquad \mathcal{E}(\texttt{Secuencia}(o :: l), e) = \mathcal{E}(\texttt{Secuencia}(l), \mathcal{E}(o, e))$$
+
+Se escribe $\text{nada} = \texttt{Secuencia}(\text{Nil})$.
+
+## Teorema
+
+Para toda orden $o$ y todo estado $e$:
+
+$$\mathcal{E}(\texttt{simplificar}(o), e) = \mathcal{E}(o, e)$$
+
+## Lemas previos
+
+**Lema 1 (secuencia de dos listas).** Para listas $l_1$ y $l_2$:
+
+$$\mathcal{E}(\texttt{Secuencia}(l_1 \mathbin{+\!\!+} l_2), e) = \mathcal{E}(\texttt{Secuencia}(l_2), \mathcal{E}(\texttt{Secuencia}(l_1), e))$$
+
+*Demostración.* Inducción sobre $l_1$.
+
+- Base, $l_1 = \text{Nil}$: ambos lados valen $\mathcal{E}(\texttt{Secuencia}(l_2), e)$.
+- Paso, $l_1 = o :: l_1'$: por definición el lado izquierdo es $\mathcal{E}(\texttt{Secuencia}(l_1' \mathbin{+\!\!+} l_2), \mathcal{E}(o, e))$. Por hipótesis de inducción esto es $\mathcal{E}(\texttt{Secuencia}(l_2), \mathcal{E}(\texttt{Secuencia}(l_1'), \mathcal{E}(o, e)))$, y como $\mathcal{E}(\texttt{Secuencia}(l_1'), \mathcal{E}(o, e)) = \mathcal{E}(\texttt{Secuencia}(o :: l_1'), e)$, queda demostrado. $\blacksquare$
+
+**Lema 2.** $\mathcal{E}(\texttt{Avanzar}(n), (x, y, d))$ conserva la dirección $d$. Se sigue de la definición.
+
+## Equivalencia de cada regla
+
+**Regla 1a: $\texttt{Avanzar}(0) \equiv \text{nada}$.** Con $n = 0$ el desplazamiento es $(0, 0)$, así que $\mathcal{E}(\texttt{Avanzar}(0), e) = e = \mathcal{E}(\text{nada}, e)$.
+
+**Regla 1b: $\texttt{Repetir}(v, o) \equiv \text{nada}$ si $v \le 0$.** Por definición, $\mathcal{E}(\texttt{Repetir}(v, o), e) = e$ cuando $v \le 0$.
+
+**Regla 2: $\texttt{Avanzar}(a), \texttt{Avanzar}(b)$ seguidos $\equiv \texttt{Avanzar}(a + b)$.** Sea $e = (x, y, d)$. Tras $\texttt{Avanzar}(a)$ el estado es $(x + a\delta_x, y + a\delta_y, d)$ y la dirección sigue siendo $d$ (Lema 2). Tras $\texttt{Avanzar}(b)$ es
+
+$$(x + (a+b)\delta_x,\ y + (a+b)\delta_y,\ d) = \mathcal{E}(\texttt{Avanzar}(a+b), e)$$
+
+**Regla 3: $\texttt{Repetir}(1, o) \equiv o$.** Por definición, $\mathcal{E}(\texttt{Repetir}(1, o), e) = \mathcal{E}(\texttt{Repetir}(0, o), \mathcal{E}(o, e)) = \mathcal{E}(o, e)$, porque repetir cero veces no hace nada.
+
+**Regla 4: $\texttt{Secuencia}(o :: \text{Nil}) \equiv o$.** Por definición, $\mathcal{E}(\texttt{Secuencia}(o :: \text{Nil}), e) = \mathcal{E}(\text{nada}, \mathcal{E}(o, e)) = \mathcal{E}(o, e)$.
+
+**Regla 5: quitar una orden neutra.** Si $n \equiv \text{nada}$, entonces
+
+$$\texttt{Secuencia}(l_1 \mathbin{+\!\!+} (n :: l_2)) \equiv \texttt{Secuencia}(l_1 \mathbin{+\!\!+} l_2)$$
+
+Por el Lema 1, ejecutar $l_1$, luego $n$ y luego $l_2$ da el mismo estado que ejecutar $l_1$ y luego $l_2$, porque $n$ deja el estado intacto.
+
+**Caso auxiliar: $\texttt{Repetir}(v, n) \equiv \text{nada}$ si $n \equiv \text{nada}$.** Inducción sobre $v$. Si $v \le 0$ es la regla 1b. Si $v > 0$, $\mathcal{E}(\texttt{Repetir}(v, n), e) = \mathcal{E}(\texttt{Repetir}(v-1, n), \mathcal{E}(n, e)) = \mathcal{E}(\texttt{Repetir}(v-1, n), e) = e$ por hipótesis de inducción. Esto justifica devolver $\text{nada}$ cuando el cuerpo de un `Repetir` se simplifica a `Secuencia(Nil)`.
+
+## La función `juntar`
+
+**Lema 3.** $\texttt{Secuencia}(\texttt{juntar}(l)) \equiv \texttt{Secuencia}(l)$.
+
+*Demostración.* Inducción sobre la longitud de $l$. La rama que sustituye $\texttt{Avanzar}(a) :: \texttt{Avanzar}(b) :: \text{resto}$ por $\texttt{Avanzar}(a+b) :: \text{resto}$ usa la regla 2 y el Lema 1. La rama $x :: \text{resto}$ conserva $x$ y trata el resto por hipótesis de inducción. La rama $\text{Nil}$ es trivial. $\blacksquare$
+
+## Una pasada conserva el resultado
+
+**Lema 4.** Para toda orden $o$: $\texttt{unaPasada}(o) \equiv o$.
+
+*Demostración.* Inducción estructural sobre $o$.
+
+- $\texttt{Avanzar}(0)$: devuelve $\text{nada}$, equivalente por la regla 1a.
+- $\texttt{Avanzar}(n)$ con $n \ne 0$ y $\texttt{Girar}(s)$: devuelven la misma orden.
+- $\texttt{Repetir}(v, x)$ con $v \le 0$: devuelve $\text{nada}$, equivalente por la regla 1b.
+- $\texttt{Repetir}(1, x)$: devuelve $\texttt{unaPasada}(x)$, equivalente a $x$ por hipótesis de inducción, y $x \equiv \texttt{Repetir}(1, x)$ por la regla 3.
+- $\texttt{Repetir}(v, x)$ con $v > 1$: sea $y = \texttt{unaPasada}(x) \equiv x$. Si $y = \text{nada}$ se devuelve $\text{nada}$, equivalente por el caso auxiliar. Si no, se devuelve $\texttt{Repetir}(v, y)$, equivalente a $\texttt{Repetir}(v, x)$ porque repetir $v$ veces órdenes equivalentes da el mismo resultado.
+- $\texttt{Secuencia}(l)$: cada elemento se simplifica y por hipótesis de inducción es equivalente al original. Luego se filtran los $\text{nada}$ (regla 5) y se aplica `juntar` (Lema 3). Por último, el resultado vacío es $\text{nada}$, el de un elemento es ese elemento (regla 4) y en otro caso es una `Secuencia`. Todos estos pasos conservan el resultado. $\blacksquare$
+
+## Repetir hasta que no cambie
+
+`simplificar(o)` aplica `unaPasada` repetidamente hasta que el resultado sea igual a la entrada.
+
+**Terminación.** Para una orden se define el par $(\text{nodos}, \text{ceros})$, donde `nodos` es el número de constructores y `ceros` la cantidad de $\texttt{Avanzar}(0)$ que contiene. Una pasada que cambia algo hace una de estas cosas:
+
+- elimina al menos un nodo (reglas 1b, 2, 3, 4 o 5), o
+- convierte un $\texttt{Avanzar}(0)$ en $\text{nada}$ (regla 1a), que mantiene los nodos y baja `ceros`.
+
+La regla 2 puede crear un $\texttt{Avanzar}(0)$ cuando $a + b = 0$, pero a la vez elimina un nodo, así que `nodos` baja. El par decrece en orden lexicográfico en cada pasada que cambia la orden, y como ese orden es bien fundado el proceso termina.
+
+**Corrección.** Por el Lema 4, cada pasada conserva el resultado de `ejecutar`. Por inducción sobre el número de pasadas, $\texttt{simplificar}(o) \equiv o$, es decir,
+
+$$\mathcal{E}(\texttt{simplificar}(o), e) = \mathcal{E}(o, e) \quad \blacksquare$$
+
+## La salida cumple las reglas
+
+Cuando $\texttt{unaPasada}(o) = o$, ninguna regla es aplicable a $o$. Entonces la salida no contiene $\texttt{Avanzar}(0)$, ni $\texttt{Repetir}$ con $v \le 1$, ni secuencias de un solo elemento, ni órdenes que no hacen nada dentro de secuencias, ni dos `Avanzar` contiguos.
+
+De aquí sale también la idempotencia: $\texttt{simplificar}(\texttt{simplificar}(o)) = \texttt{simplificar}(o)$, porque la salida ya es un punto fijo de `unaPasada`.
+
+## Relación con las pruebas
+
+Las pruebas de ScalaTest comprueban el teorema sobre casos concretos: para varias órdenes y estados verifican que $\mathcal{E}(o, e) = \mathcal{E}(\texttt{simplificar}(o), e)$, además de la idempotencia.
