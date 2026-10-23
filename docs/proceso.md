@@ -143,13 +143,160 @@ val cuadrado = Repetir(4, Secuencia(List(Avanzar(1), Girar(Derecha))))
 
 ## Punto 1: `girar`
 
-> TODO: responsable del punto 1.
+`girar` decide hacia dónde queda mirando el robot después de girar noventa
+grados. No lo mueve: la posición `(x, y)` no cambia.
+
+```scala
+def girar(d: Direccion, s: Sentido): Direccion = {
+  (d, s) match {
+    case (Norte, Izquierda) => Oeste
+    case (Norte, Derecha) => Este
+    case (Este, Izquierda) => Norte
+    case (Este, Derecha) => Sur
+    case (Sur, Izquierda) => Este
+    case (Sur, Derecha) => Oeste
+    case (Oeste, Izquierda) => Sur
+    case (Oeste, Derecha) => Norte
+  }
+}
+```
+
+Cómo funciona:
+
+- Los dos argumentos se agrupan en la pareja `(d, s)` y el `match` la compara
+  con los casos en orden. El primero que coincide devuelve la dirección.
+- Hay 8 casos, uno por cada combinación de 4 direcciones y 2 sentidos. No hay
+  `if` ni cálculos: es una tabla.
+- `Direccion` y `Sentido` son `sealed`, así que el compilador avisa si falta
+  alguna combinación.
+
+| Mira ahora | Giro a la izquierda | Giro a la derecha |
+|------------|---------------------|-------------------|
+| Norte | Oeste | Este |
+| Este | Norte | Sur |
+| Sur | Este | Oeste |
+| Oeste | Sur | Norte |
+
+### Traza: cuatro giros a la derecha desde `inicial`
+
+El robot empieza en `(0, 0)` mirando al norte y gira cuatro veces a la derecha.
+
+| Paso | Pareja evaluada | Caso que coincide | Estado `(x, y, mira)` |
+|------|-----------------|-------------------|-----------------------|
+| 0 | (inicio) | | `(0, 0, Norte)` |
+| 1 | `(Norte, Derecha)` | `case (Norte, Derecha) => Este` | `(0, 0, Este)` |
+| 2 | `(Este, Derecha)` | `case (Este, Derecha) => Sur` | `(0, 0, Sur)` |
+| 3 | `(Sur, Derecha)` | `case (Sur, Derecha) => Oeste` | `(0, 0, Oeste)` |
+| 4 | `(Oeste, Derecha)` | `case (Oeste, Derecha) => Norte` | `(0, 0, Norte)` |
+
+La posición nunca cambia, y tras cuatro giros el robot vuelve a mirar al norte.
+
+```mermaid
+graph LR
+    Norte -->|Derecha| Este
+    Este -->|Derecha| Sur
+    Sur -->|Derecha| Oeste
+    Oeste -->|Derecha| Norte
+    Este -.->|Izquierda| Norte
+    Sur -.->|Izquierda| Este
+    Oeste -.->|Izquierda| Sur
+    Norte -.->|Izquierda| Oeste
+```
+
+Las flechas continuas son giros a la derecha y las punteadas, a la izquierda.
 
 ## Punto 2: `ejecutar`
 
-> TODO: responsable del punto 2. Incluir la traza de `ejecutar` sobre
-> `Repetir(4, Secuencia(List(Avanzar(1), Girar(Derecha))))` desde `inicial`,
-> con el estado y la orden pendiente en cada paso.
+> `ejecutar` recibe el estado del robot (posición y dirección) y una orden, y
+devuelve el estado en que queda el robot. No modifica nada: construye un
+`Estado` nuevo.
+
+```scala
+def ejecutar(e: Estado, o: Orden): Estado = {
+  o match {
+    case Avanzar(n) =>
+      e.mira match {
+        case Norte => Estado(e.x, e.y + n, e.mira)
+        case Sur => Estado(e.x, e.y - n, e.mira)
+        case Este => Estado(e.x + n, e.y, e.mira)
+        case Oeste => Estado(e.x - n, e.y, e.mira)
+      }
+    case Girar(sentido) => Estado(e.x, e.y, girar(e.mira, sentido))
+    case Repetir(veces, _) if veces <= 0 => e
+    case Repetir(veces, orden) =>
+      ejecutar(ejecutar(e, orden), Repetir(veces - 1, orden))
+    case Secuencia(Nil) => e
+    case Secuencia(primera :: resto) =>
+      ejecutar(ejecutar(e, primera), Secuencia(resto))
+  }
+}
+```
+
+Hay un caso por cada alternativa de `Orden`. Cómo funciona, caso por caso:
+
+- **`Avanzar(n)`:** primero mira hacia dónde apunta el robot (`e.mira`). Al norte
+  suma `n` a `y`, al sur resta `n` a `y`, al este suma `n` a `x` y al oeste
+  resta `n` a `x`. Con `n` negativo el robot retrocede, sin necesitar otro caso.
+- **`Girar(sentido)`:** `x` e `y` quedan igual y `mira` pasa a ser
+  `girar(e.mira, sentido)`, la función del punto 1.
+- **`Repetir(veces, _)` con `veces <= 0`:** no hace nada, devuelve `e`. Es la
+  condición de parada. Va antes del caso general; si estuviera después, nunca se
+  alcanzaría.
+- **`Repetir(veces, orden)` con `veces > 0`:** ejecuta la orden una vez sobre `e`
+  y sobre el estado que resulta ejecuta `Repetir(veces - 1, orden)`. En cada
+  llamada `veces` baja en 1 hasta llegar a 0.
+- **`Secuencia(Nil)`:** no hay nada que ejecutar, devuelve `e`.
+- **`Secuencia(primera :: resto)`:** ejecuta la primera orden sobre `e` y sobre el
+  estado resultante ejecuta el resto. La lista se acorta hasta llegar a `Nil`.
+
+### Traza de `ejecutar(inicial, cuadrado)`
+
+Sea `S = Secuencia(List(Avanzar(1), Girar(Derecha)))`, de modo que
+`cuadrado = Repetir(4, S)`. La tabla muestra el estado del robot después de
+ejecutar cada orden básica y qué queda por ejecutar.
+
+| Paso | Orden que se ejecuta | Estado `(x, y, mira)` | Orden que queda por ejecutar |
+|------|----------------------|-----------------------|------------------------------|
+| 0 | (inicio) | `(0, 0, Norte)` | `Repetir(4, S)` |
+| 1 | `Avanzar(1)` mirando al norte: `y` pasa de 0 a 1 | `(0, 1, Norte)` | `Girar(Derecha)` y luego `Repetir(3, S)` |
+| 2 | `Girar(Derecha)`: Norte pasa a Este | `(0, 1, Este)` | `Repetir(3, S)` |
+| 3 | `Avanzar(1)` mirando al este: `x` pasa de 0 a 1 | `(1, 1, Este)` | `Girar(Derecha)` y luego `Repetir(2, S)` |
+| 4 | `Girar(Derecha)`: Este pasa a Sur | `(1, 1, Sur)` | `Repetir(2, S)` |
+| 5 | `Avanzar(1)` mirando al sur: `y` pasa de 1 a 0 | `(1, 0, Sur)` | `Girar(Derecha)` y luego `Repetir(1, S)` |
+| 6 | `Girar(Derecha)`: Sur pasa a Oeste | `(1, 0, Oeste)` | `Repetir(1, S)` |
+| 7 | `Avanzar(1)` mirando al oeste: `x` pasa de 1 a 0 | `(0, 0, Oeste)` | `Girar(Derecha)` y luego `Repetir(0, S)` |
+| 8 | `Girar(Derecha)`: Oeste pasa a Norte | `(0, 0, Norte)` | `Repetir(0, S)` |
+| 9 | `Repetir(0, S)`: como `0 <= 0`, devuelve el estado | `(0, 0, Norte)` | nada |
+
+Resultado: `ejecutar(inicial, cuadrado) = Estado(0, 0, Norte)`. El robot recorre
+un cuadrado de lado 1 y vuelve al punto de partida mirando al norte.
+
+```mermaid
+graph LR
+    P0["(0,0) Norte"] -->|"Avanzar(1)"| P1["(0,1) Norte"]
+    P1 -->|"Girar(Derecha)"| P2["(0,1) Este"]
+    P2 -->|"Avanzar(1)"| P3["(1,1) Este"]
+    P3 -->|"Girar(Derecha)"| P4["(1,1) Sur"]
+    P4 -->|"Avanzar(1)"| P5["(1,0) Sur"]
+    P5 -->|"Girar(Derecha)"| P6["(1,0) Oeste"]
+    P6 -->|"Avanzar(1)"| P7["(0,0) Oeste"]
+    P7 -->|"Girar(Derecha)"| P8["(0,0) Norte"]
+```
+
+### Traza de una secuencia
+
+`ejecutar(inicial, Secuencia(List(Avanzar(2), Girar(Derecha), Avanzar(4))))`
+
+| Paso | Regla aplicada | Estado | Orden que queda por ejecutar |
+|------|----------------|--------|------------------------------|
+| 0 | (inicio) | `(0, 0, Norte)` | `Secuencia(List(Avanzar(2), Girar(Derecha), Avanzar(4)))` |
+| 1 | `Secuencia(primera :: resto)`, `primera = Avanzar(2)` | `(0, 2, Norte)` | `Secuencia(List(Girar(Derecha), Avanzar(4)))` |
+| 2 | `Secuencia(primera :: resto)`, `primera = Girar(Derecha)` | `(0, 2, Este)` | `Secuencia(List(Avanzar(4)))` |
+| 3 | `Secuencia(primera :: resto)`, `primera = Avanzar(4)` | `(4, 2, Este)` | `Secuencia(Nil)` |
+| 4 | `Secuencia(Nil)` | `(4, 2, Este)` | nada |
+
+Resultado: `Estado(4, 2, Este)`. El último avance sumó a `x` porque el robot ya
+miraba al este.
 
 ## Punto 3: `cuantasBasicas` y `profundidad`
 
