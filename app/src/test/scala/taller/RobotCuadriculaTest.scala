@@ -275,6 +275,34 @@ class RobotCuadriculaTest extends AnyFunSuite {
       List(Estado(4, 1, Norte), Estado(-5, 0, Sur), Estado(0, -3, Este)))
   }
 
+  test("propia transformar: invertir los giros conserva la estructura anidada") {
+    val o = Secuencia(List(
+      Avanzar(1),
+      Repetir(2, Secuencia(List(Girar(Derecha), Secuencia(Nil), Avanzar(5)))),
+      Girar(Izquierda)))
+    val invertida = transformar(o, {
+      case Girar(Derecha) => Girar(Izquierda)
+      case Girar(Izquierda) => Girar(Derecha)
+      case otra => otra
+    })
+    assert(invertida == Secuencia(List(
+      Avanzar(1),
+      Repetir(2, Secuencia(List(Girar(Izquierda), Secuencia(Nil), Avanzar(5)))),
+      Girar(Derecha))))
+  }
+
+  test("propia transformar: duplicar los avances duplica el desplazamiento desde el origen") {
+    val o = Secuencia(List(Avanzar(2), Girar(Derecha), Avanzar(4),
+      Repetir(2, Secuencia(List(Avanzar(1), Girar(Izquierda)))), Avanzar(3)))
+    val doble = transformar(o, {
+      case Avanzar(n) => Avanzar(2 * n)
+      case otra => otra
+    })
+    assert(ejecutar(inicial, o) == Estado(2, 3, Oeste))
+    assert(ejecutar(inicial, doble) == Estado(4, 6, Oeste))
+  }
+
+
   // Punto 5 -------------------------------------------------------------------
 
 // TODO: responsable del punto 5 (mínimo 5 casos propios).

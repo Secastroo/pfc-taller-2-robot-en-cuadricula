@@ -483,7 +483,190 @@ $\text{ejecutar}(e, o_1) = (0, 2, \text{Norte})$ y
 $\text{ejecutar}((0, 2, \text{Norte}), o_2) = (0, 2, \text{Este})$, que es
 el resultado de `ejecutar(e, componer(o1, o2))`.
 
-> TODO: responsable de `rutina`, `aplicarA` y `transformar`.
+### Dos casos de `ejecutar` que se usan aquí
+
+Además de los casos de `Secuencia` que ya se dieron arriba, estas demostraciones usan los dos casos de `ejecutar` sobre `Repetir`, tal como están en `RobotCuadricula.scala`:
+
+```scala
+case Repetir(veces, _) if veces <= 0 => e
+case Repetir(veces, orden) => ejecutar(ejecutar(e, orden), Repetir(veces - 1, orden))
+```
+
+Es decir, repetir con cero o menos veces deja el estado como estaba, y repetir $k + 1$ veces es ejecutar la orden una vez y luego repetirla $k$ veces sobre el estado que quedó:
+
+```math
+\text{ejecutar}(e, \text{Repetir}(k, o)) = e \qquad \text{si } k \leq 0
+```
+
+```math
+\text{ejecutar}(e, \text{Repetir}(k + 1, o)) = \text{ejecutar}(\text{ejecutar}(e, o), \text{Repetir}(k, o)) \qquad \text{si } k + 1 > 0
+```
+
+### `rutina`
+
+Sea $p$ un número de pasos, $g$ un sentido y $o_{p,g} = \text{Secuencia}(\text{List}(\text{Avanzar}(p), \text{Girar}(g)))$ el par avanzar-girar. Por la definición del programa, $\text{rutina}(p)(g)(k) = \text{Repetir}(k, o_{p,g})$.
+
+Llamemos $\text{paso}(e)$ al estado que queda de hacer una vez ese par desde $e$, es decir $\text{paso}(e) = \text{ejecutar}(e, o_{p,g})$. Por lo que se mostró para `componer`, ejecutar una secuencia de dos órdenes es ejecutar la primera y después la segunda sobre el estado que queda:
+
+```math
+\text{paso}(e) = \text{ejecutar}(\text{ejecutar}(e, \text{Avanzar}(p)), \text{Girar}(g))
+```
+
+Y sea $\text{paso}^k$ aplicar $\text{paso}$ $k$ veces, con $\text{paso}^0(e) = e$ y $\text{paso}^{k+1}(e) = \text{paso}^k(\text{paso}(e))$.
+
+Se quiere demostrar que la rutina compuesta equivale a ejecutar sus partes, el par avanzar-girar, tantas veces como se pida:
+
+```math
+\forall k \in \mathbb{N},\ \forall e \in \text{Estado} : \text{ejecutar}(e, \text{rutina}(p)(g)(k)) == \text{paso}^k(e)
+```
+
+La demostración es por inducción sobre $k$. Es importante que la afirmación valga para todo estado $e$, porque en el paso inductivo la hipótesis se va a usar sobre un estado distinto del de partida.
+
+Caso base: $k = 0$.
+
+```math
+\text{ejecutar}(e, \text{rutina}(p)(g)(0)) \rightarrow \text{ejecutar}(e, \text{Repetir}(0, o_{p,g})) \rightarrow e
+```
+
+El último paso es el primer caso de `Repetir`, porque $0 \leq 0$. Por otro lado, $\text{paso}^0(e) = e$. Entonces los dos lados coinciden.
+
+Caso de inducción: $k + 1$, con $k \geq 0$. La hipótesis de inducción (HI) dice que $\forall e' : \text{ejecutar}(e', \text{rutina}(p)(g)(k)) == \text{paso}^k(e')$. Como $k + 1 > 0$, se aplica el segundo caso de `Repetir`:
+
+```math
+\text{ejecutar}(e, \text{Repetir}(k + 1, o_{p,g})) \rightarrow \text{ejecutar}(\text{ejecutar}(e, o_{p,g}), \text{Repetir}(k, o_{p,g}))
+```
+
+```math
+= \text{ejecutar}(\text{paso}(e), \text{rutina}(p)(g)(k)) \overset{\text{HI}}{=} \text{paso}^k(\text{paso}(e)) = \text{paso}^{k+1}(e)
+```
+
+En la HI se tomó $e' = \text{paso}(e)$. Concluimos por inducción que la afirmación vale para todo $k \in \mathbb{N}$. Si $k$ es negativo se aplica el primer caso de `Repetir` y el estado no cambia, que es lo mismo que $k = 0$.
+
+La currificación no cambia el valor: $\text{rutina}(p)(g)$ es la función $k \mapsto \text{Repetir}(k, o_{p,g})$, y aplicarla a $k$ da exactamente $\text{rutina}(p)(g)(k)$.
+
+Consecuencia: el cuadrado vuelve al punto de partida. Para cualquier $p$, cualquier $g$ y cualquier estado $e = (x, y, d)$, ejecutar `rutina(p)(g)(4)` devuelve $e$. Se ve así. Sea $u(d)$ el vector unitario de la dirección $d$:
+
+```math
+u(\text{Norte}) = (0, 1) \quad u(\text{Este}) = (1, 0) \quad u(\text{Sur}) = (0, -1) \quad u(\text{Oeste}) = (-1, 0)
+```
+
+Entonces $\text{paso}(x, y, d) = (x + p \cdot u_x(d),\ y + p \cdot u_y(d),\ \text{girar}(d, g))$. Sean $d_0 = d$ y $d_{i+1} = \text{girar}(d_i, g)$. Girar siempre al mismo lado recorre las cuatro direcciones una vez (Norte, Este, Sur, Oeste si es a la derecha, y al revés si es a la izquierda), así que $d_0, d_1, d_2, d_3$ son las cuatro direcciones, cada una una sola vez, y $\text{girar}(d_3, g) = d_0$. Por lo tanto, después de cuatro pasos la dirección es la misma y la posición cambió en
+
+```math
+p \cdot \big(u(d_0) + u(d_1) + u(d_2) + u(d_3)\big) = p \cdot \big((0,1) + (1,0) + (0,-1) + (-1,0)\big) = (0, 0)
+```
+
+Entonces $\text{paso}^4(e) = e$, y por lo demostrado, $\text{ejecutar}(e, \text{rutina}(p)(g)(4)) == e$. Esto explica por qué los cuatro avances con un giro entre cada uno dibujan un cuadrado, sea de lado 1, de lado 3 o del que sea (suponiendo que no se desborda un `Int`).
+
+### `aplicarA`
+
+Sea $[e_1, \ldots, e_n]$ una lista de estados y $o$ una orden. La especificación es la lista que resulta de ejecutar $o$ sobre cada estado, conservando el orden:
+
+```math
+\text{AplicarA}([e_1, \ldots, e_n], o) = [\text{ejecutar}(e_1, o), \ldots, \text{ejecutar}(e_n, o)]
+```
+
+Se quiere demostrar que $\forall es \in \text{List}[\text{Estado}],\ \forall o \in \text{Orden} : \text{aplicarA}(es, o) == \text{AplicarA}(es, o)$. Como las listas están definidas recursivamente (o son `Nil`, o son un estado seguido de otra lista), se usa inducción estructural sobre la lista.
+
+Caso base: $es = \text{Nil}$.
+
+```math
+\text{aplicarA}(\text{Nil}, o) \rightarrow \text{Nil}
+```
+
+Por otro lado, $\text{AplicarA}(\text{Nil}, o)$ es la lista vacía, porque no hay estados que ejecutar. Entonces $\text{aplicarA}(\text{Nil}, o) == \text{AplicarA}(\text{Nil}, o)$.
+
+Caso de inducción: $es = e :: r$, con $r = [r_1, \ldots, r_m]$. La HI dice que $\text{aplicarA}(r, o) == [\text{ejecutar}(r_1, o), \ldots, \text{ejecutar}(r_m, o)]$.
+
+```math
+\text{aplicarA}(e :: r, o) \rightarrow \text{ejecutar}(e, o) :: \text{aplicarA}(r, o)
+```
+
+```math
+\overset{\text{HI}}{=} \text{ejecutar}(e, o) :: [\text{ejecutar}(r_1, o), \ldots, \text{ejecutar}(r_m, o)] = \text{AplicarA}(e :: r, o)
+```
+
+Concluimos por inducción que $\forall es,\ \forall o : \text{aplicarA}(es, o) == \text{AplicarA}(es, o)$.
+
+De ahí se sacan dos cosas que usan las pruebas: el resultado tiene el mismo largo que la entrada, y el resultado en la posición $i$ solo depende del estado $e_i$ y de la orden, no de los otros estados.
+
+### `transformar`
+
+Para no repetir, se escribe $T(o)$ en lugar de $\text{transformar}(o, f)$ y $T^*(l)$ para la función auxiliar `transformarTodas` sobre una lista $l$, que transforma cada orden de la lista en el mismo orden. Por la definición del programa:
+
+```math
+T(\text{Avanzar}(n)) = f(\text{Avanzar}(n)) \qquad T(\text{Girar}(s)) = f(\text{Girar}(s))
+```
+
+```math
+T(\text{Repetir}(k, o)) = \text{Repetir}(k, T(o)) \qquad T(\text{Secuencia}(l)) = \text{Secuencia}(T^*(l))
+```
+
+```math
+T^*(\text{Nil}) = \text{Nil} \qquad T^*(x :: r) = T(x) :: T^*(r)
+```
+
+Lo que dice el enunciado es que `transformar` reemplaza cada orden básica por el resultado de aplicarle $f$ y respeta la estructura de las compuestas. La estructura se ve en las ecuaciones: las veces de un `Repetir` no cambian, y una `Secuencia` conserva sus elementos en el mismo orden. Faltan dos cosas por argumentar: que con la identidad no cambia nada, y qué pasa con el resultado de ejecutar.
+
+#### Con la identidad no cambia nada
+
+Se quiere demostrar que $\forall o \in \text{Orden} : \text{transformar}(o, \text{id}) == o$, por inducción estructural sobre $o$. Recordemos que en esta inducción las órdenes de una lista de `Secuencia` también cuentan como órdenes más pequeñas.
+
+Caso base: $o = \text{Avanzar}(n)$ o $o = \text{Girar}(s)$. $T(o) = \text{id}(o) = o$.
+
+Caso de inducción: $o = \text{Repetir}(k, o')$. La HI dice que $T(o') == o'$, así que $T(o) = \text{Repetir}(k, T(o')) = \text{Repetir}(k, o') = o$.
+
+Caso de inducción: $o = \text{Secuencia}(l)$. Hay que ver que $T^*(l) == l$, por inducción sobre la lista. Si $l = \text{Nil}$, $T^*(\text{Nil}) = \text{Nil}$. Si $l = x :: r$, $T^*(x :: r) = T(x) :: T^*(r)$, y por la HI sobre la orden $x$ y sobre la lista $r$ eso es $x :: r$. Entonces $T(\text{Secuencia}(l)) = \text{Secuencia}(l)$.
+
+#### Qué pasa con el resultado de ejecutar
+
+Se dice que dos órdenes son equivalentes, y se escribe $o_1 \equiv o_2$, si dejan el mismo estado desde cualquier estado de partida:
+
+```math
+o_1 \equiv o_2 \iff \forall e \in \text{Estado} : \text{ejecutar}(e, o_1) == \text{ejecutar}(e, o_2)
+```
+
+Se quiere demostrar lo siguiente. Si $f$ cumple la hipótesis H, que para toda orden básica $b$ se tiene $f(b) \equiv b$, entonces transformar con $f$ no cambia lo que hace la orden:
+
+```math
+\forall o \in \text{Orden} : T(o) \equiv o
+```
+
+La demostración es por inducción estructural sobre $o$.
+
+Caso base: $o = \text{Avanzar}(n)$ o $o = \text{Girar}(s)$. $T(o) = f(o) \equiv o$ por la hipótesis H.
+
+Caso de inducción: $o = \text{Repetir}(k, o')$. La HI dice que $T(o') \equiv o'$. Hay que ver que $\text{Repetir}(k, T(o')) \equiv \text{Repetir}(k, o')$, para lo cual se hace una inducción interna sobre $k$, con la afirmación para todo estado $e$:
+
+* Si $k \leq 0$, las dos órdenes dejan el estado como estaba: $\text{ejecutar}(e, \text{Repetir}(k, T(o'))) = e = \text{ejecutar}(e, \text{Repetir}(k, o'))$.
+* Si es $k + 1$, con la hipótesis interna (HIk) de que el resultado vale para $k$ y todo estado:
+
+```math
+\text{ejecutar}(e, \text{Repetir}(k+1, T(o'))) = \text{ejecutar}(\text{ejecutar}(e, T(o')), \text{Repetir}(k, T(o')))
+```
+
+```math
+\overset{\text{HI}}{=} \text{ejecutar}(\text{ejecutar}(e, o'), \text{Repetir}(k, T(o'))) \overset{\text{HIk}}{=} \text{ejecutar}(\text{ejecutar}(e, o'), \text{Repetir}(k, o')) = \text{ejecutar}(e, \text{Repetir}(k+1, o'))
+```
+
+Caso de inducción: $o = \text{Secuencia}(l)$. La HI dice que $T(x) \equiv x$ para cada orden $x$ de $l$. Hay que ver que $\text{Secuencia}(T^*(l)) \equiv \text{Secuencia}(l)$, por inducción sobre la lista, para todo estado $e$:
+
+* Si $l = \text{Nil}$, las dos secuencias son vacías y dejan a $e$ como estaba.
+* Si $l = x :: r$, con la hipótesis interna (HIl) de que el resultado vale para $r$ y todo estado:
+
+```math
+\text{ejecutar}(e, \text{Secuencia}(T(x) :: T^*(r))) = \text{ejecutar}(\text{ejecutar}(e, T(x)), \text{Secuencia}(T^*(r)))
+```
+
+```math
+\overset{\text{HI}}{=} \text{ejecutar}(\text{ejecutar}(e, x), \text{Secuencia}(T^*(r))) \overset{\text{HIl}}{=} \text{ejecutar}(\text{ejecutar}(e, x), \text{Secuencia}(r)) = \text{ejecutar}(e, \text{Secuencia}(x :: r))
+```
+
+Concluimos por inducción que $T(o) \equiv o$ para toda orden $o$. 
+
+Y un ejemplo en que H no se cumple: duplicar los avances. $\text{Avanzar}(2n) \not\equiv \text{Avanzar}(n)$ cuando $n \neq 0$, y por eso el resultado sí cambia. Desde $\text{inicial}$, la orden $\text{Secuencia}(\text{List}(\text{Avanzar}(2), \text{Girar}(\text{Derecha}), \text{Avanzar}(4)))$ deja $(4, 2, \text{Este})$ y su versión con los avances duplicados deja $(8, 4, \text{Este})$. La hipótesis H es lo que separa a las transformaciones que respetan la ejecución de las que no.
+
+Por último, las cuatro funciones del punto terminan siempre, porque cada llamado recursivo trabaja sobre una parte estrictamente más pequeña de la entrada: `aplicarA` sobre la cola de la lista, y `transformar` sobre la orden de adentro de un `Repetir` o sobre un elemento de una `Secuencia`. `rutina` y `componer` no son recursivas.
 
 ## Punto 5: `simplificar`
 
