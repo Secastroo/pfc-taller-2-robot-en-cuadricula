@@ -296,7 +296,109 @@ sequenceDiagram
 
 > TODO: responsable de `rutina`, `aplicarA` y `transformar`.
 
-## Punto 5: `simplificar`
+## Punto 5 Informe de proceso: `simplificar`
 
-> TODO: responsable del punto 5. Incluir el recorrido de `simplificar` sobre
-> una orden que necesite más de una pasada.
+Las trazas se escriben como órdenes. Las reglas son las del enunciado:
+
+1. `Avanzar(0)` y `Repetir(0, _)` se vuelven `Secuencia(Nil)`.
+2. Dos `Avanzar` seguidos dentro de una secuencia se juntan sumando los pasos.
+3. `Repetir(1, o)` se vuelve `o`.
+4. Una secuencia de un solo elemento se vuelve ese elemento.
+5. Las órdenes que no hacen nada se quitan de las secuencias.
+
+## Cómo funciona
+
+La función tiene tres auxiliares dentro, sin `var`, ciclos ni `return`:
+
+- `juntar(lista)`: recorre la lista y reemplaza dos `Avanzar` seguidos por uno solo con la suma (regla 2).
+- `unaPasada(orden)`: aplica las reglas 1, 3, 4 y 5 a toda la estructura, simplificando primero los hijos.
+- `hastaQueNoCambie(orden)`: repite `unaPasada` hasta que el resultado sea igual a la entrada. Esto cubre "tantas veces como haga falta".
+
+```mermaid
+flowchart TD
+    A["simplificar(o)"] --> B["unaPasada(o)"]
+    B --> C{"¿Resultado igual a o?"}
+    C -->|Sí| D["Devolver o"]
+    C -->|No| E["Repetir con el nuevo resultado"]
+    E --> B
+```
+
+Qué hace `unaPasada` según la orden:
+
+| Orden | Resultado |
+|---|---|
+| `Avanzar(0)` | `Secuencia(Nil)` (regla 1) |
+| `Avanzar(n)`, `Girar(s)` | la misma orden |
+| `Repetir(v, _)` con `v <= 0` | `Secuencia(Nil)` (regla 1) |
+| `Repetir(1, x)` | `unaPasada(x)` (regla 3) |
+| `Repetir(v, x)` | `Repetir(v, y)` con `y = unaPasada(x)`; si `y` es `Secuencia(Nil)` queda `Secuencia(Nil)` |
+| `Secuencia(l)` | simplifica los elementos, quita los `Secuencia(Nil)` (regla 5), junta avances (regla 2) y si queda un solo elemento lo devuelve (regla 4) |
+
+Se usa `v <= 0` porque `ejecutar` trata igual a las repeticiones negativas y a las de cero.
+
+## Trazas
+
+**`simplificar(Secuencia(List(Avanzar(2), Avanzar(3))))`**
+
+| Pasada | Orden |
+|---|---|
+| 1 | Los hijos no cambian. `juntar` produce `List(Avanzar(5))`. Un solo elemento: `Avanzar(5)` |
+| 2 | `Avanzar(5)` no cambia, así que termina |
+
+Resultado: `Avanzar(5)`.
+
+**`simplificar(Repetir(1, Avanzar(4)))`**: la regla 3 devuelve `Avanzar(4)` en la primera pasada y la segunda no cambia nada. Resultado: `Avanzar(4)`.
+
+**`simplificar(Secuencia(List(Avanzar(0), Girar(Derecha))))`**
+
+| Pasada | Orden |
+|---|---|
+| 1 | `Avanzar(0)` se vuelve `Secuencia(Nil)` y se quita. Queda un solo elemento: `Girar(Derecha)` |
+| 2 | No cambia, así que termina |
+
+Resultado: `Girar(Derecha)`.
+
+**`simplificar(Secuencia(List(Avanzar(1), Avanzar(2), Girar(Derecha), Avanzar(3))))`**
+
+| Pasada | Orden |
+|---|---|
+| 1 | `juntar` produce `List(Avanzar(3), Girar(Derecha), Avanzar(3))` |
+| 2 | Nada cambia, así que termina |
+
+Resultado: `Secuencia(List(Avanzar(3), Girar(Derecha), Avanzar(3)))`.
+
+**`simplificar(Repetir(0, Avanzar(9)))`**: `v <= 0` entra a la regla 1 y devuelve `Secuencia(Nil)` en una pasada.
+
+**`simplificar(Secuencia(List(Avanzar(2), Avanzar(-2))))`**: aquí hace falta más de una pasada.
+
+| Pasada | Orden |
+|---|---|
+| 1 | `juntar` produce `List(Avanzar(0))`, y como es un solo elemento queda `Avanzar(0)` |
+| 2 | `Avanzar(0)` se vuelve `Secuencia(Nil)` |
+| 3 | `Secuencia(Nil)` no cambia, así que termina |
+
+Resultado: `Secuencia(Nil)`.
+
+**`simplificar(Repetir(3, Repetir(1, Avanzar(2))))`**
+
+| Pasada | Orden |
+|---|---|
+| 1 | El hijo `Repetir(1, Avanzar(2))` se vuelve `Avanzar(2)`. Queda `Repetir(3, Avanzar(2))` |
+| 2 | Nada cambia, así que termina |
+
+Resultado: `Repetir(3, Avanzar(2))`.
+
+## Efecto sobre el robot
+
+Simplificar no cambia dónde termina el robot. Por ejemplo, desde `(0, 0, Norte)`:
+
+| Orden | Traza | Estado final |
+|---|---|---|
+| `Secuencia(List(Avanzar(1), Avanzar(2), Girar(Derecha), Avanzar(3)))` | `(0,1,N)`, `(0,3,N)`, `(0,3,E)`, `(3,3,E)` | `(3, 3, Este)` |
+| `Secuencia(List(Avanzar(3), Girar(Derecha), Avanzar(3)))` | `(0,3,N)`, `(0,3,E)`, `(3,3,E)` | `(3, 3, Este)` |
+
+La orden simplificada hace menos pasos y llega al mismo estado.
+
+## Pruebas
+
+Las pruebas de ScalaTest incluyen los ejemplos del enunciado, casos nuevos (negativos, anidamientos, cancelaciones), la idempotencia y que `ejecutar` da el mismo estado antes y después de simplificar. Se ejecutan con `sbt test`.

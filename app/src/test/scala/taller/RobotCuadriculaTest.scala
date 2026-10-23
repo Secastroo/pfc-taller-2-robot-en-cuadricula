@@ -260,6 +260,27 @@ class RobotCuadriculaTest extends AnyFunSuite {
 // para el punto 4 en conjunto).
 
 // Punto 5 -------------------------------------------------------------------
+  // TODO: responsable del punto 5 (mínimo 5 casos propios).
+  test("simplificar: repetir con veces negativas no hace nada") {
+    assert(simplificar(Repetir(-2, Avanzar(3))) == Secuencia(Nil))
+  }
 
-// TODO: responsable del punto 5 (mínimo 5 casos propios).
+  test("simplificar: avances que se cancelan dejan solo el giro") {
+    assert(simplificar(Secuencia(List(Avanzar(2), Avanzar(-2), Girar(Izquierda)))) == Girar(Izquierda))
+  }
+
+  test("simplificar: repetir una secuencia de avances en cero no hace nada") {
+    assert(simplificar(Repetir(3, Secuencia(List(Avanzar(0), Avanzar(0))))) == Secuencia(Nil))
+  }
+
+  test("simplificar: reduce la secuencia interior dentro de otra secuencia") {
+    assert(simplificar(Secuencia(List(Secuencia(List(Avanzar(1), Avanzar(1))), Girar(Derecha)))) ==
+      Secuencia(List(Avanzar(2), Girar(Derecha))))
+  }
+
+  test("simplificar: reduce lo que hay dentro de un repetir") {
+    assert(simplificar(Repetir(3, Secuencia(List(Avanzar(1), Avanzar(2))))) == Repetir(3, Avanzar(3)))
+  }
+
+
 }
