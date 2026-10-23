@@ -256,10 +256,53 @@ class RobotCuadriculaTest extends AnyFunSuite {
     assert(izq == Estado(4, -4, Este))
   }
 
-  // TODO: responsable de rutina, aplicarA y transformar (mínimo 5 casos propios
 // para el punto 4 en conjunto).
+  test("propia rutina: dos pasos a la izquierda, tres veces, arma la orden esperada") {
+    assert(rutina(2)(Izquierda)(3) ==
+      Repetir(3, Secuencia(List(Avanzar(2), Girar(Izquierda)))))
+  }
 
-// Punto 5 -------------------------------------------------------------------
+  test("propia rutina: ejecutada deja media vuelta o un cuadrado de lado tres") {
+    assert(ejecutar(inicial, rutina(2)(Derecha)(2)) == Estado(2, 2, Sur))
+    assert(ejecutar(inicial, rutina(3)(Izquierda)(4)) == inicial)
+  }
+
+  test("propia aplicarA: una orden compuesta sobre estados que miran a lados distintos") {
+    val estados = List(Estado(1, 1, Este), Estado(-2, 0, Oeste), Estado(0, 0, Sur))
+    val o = Secuencia(List(Avanzar(3), Girar(Izquierda)))
+    assert(aplicarA(estados, o) ==
+      List(Estado(4, 1, Norte), Estado(-5, 0, Sur), Estado(0, -3, Este)))
+  }
+
+  test("propia transformar: invertir los giros conserva la estructura anidada") {
+    val o = Secuencia(List(
+      Avanzar(1),
+      Repetir(2, Secuencia(List(Girar(Derecha), Secuencia(Nil), Avanzar(5)))),
+      Girar(Izquierda)))
+    val invertida = transformar(o, {
+      case Girar(Derecha) => Girar(Izquierda)
+      case Girar(Izquierda) => Girar(Derecha)
+      case otra => otra
+    })
+    assert(invertida == Secuencia(List(
+      Avanzar(1),
+      Repetir(2, Secuencia(List(Girar(Izquierda), Secuencia(Nil), Avanzar(5)))),
+      Girar(Derecha))))
+  }
+
+  test("propia transformar: duplicar los avances duplica el desplazamiento desde el origen") {
+    val o = Secuencia(List(Avanzar(2), Girar(Derecha), Avanzar(4),
+      Repetir(2, Secuencia(List(Avanzar(1), Girar(Izquierda)))), Avanzar(3)))
+    val doble = transformar(o, {
+      case Avanzar(n) => Avanzar(2 * n)
+      case otra => otra
+    })
+    assert(ejecutar(inicial, o) == Estado(2, 3, Oeste))
+    assert(ejecutar(inicial, doble) == Estado(4, 6, Oeste))
+  }
+
+
+  // Punto 5 -------------------------------------------------------------------
   // TODO: responsable del punto 5 (mínimo 5 casos propios).
   test("simplificar: repetir con veces negativas no hace nada") {
     assert(simplificar(Repetir(-2, Avanzar(3))) == Secuencia(Nil))
@@ -281,6 +324,5 @@ class RobotCuadriculaTest extends AnyFunSuite {
   test("simplificar: reduce lo que hay dentro de un repetir") {
     assert(simplificar(Repetir(3, Secuencia(List(Avanzar(1), Avanzar(2))))) == Repetir(3, Avanzar(3)))
   }
-
 
 }

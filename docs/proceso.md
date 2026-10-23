@@ -294,7 +294,155 @@ sequenceDiagram
     E1->>E2: Girar(Derecha)
 ```
 
-> TODO: responsable de `rutina`, `aplicarA` y `transformar`.
+### `rutina`
+
+```scala
+def rutina(pasos: Int)(giro: Sentido)(veces: Int): Orden =
+  Repetir(veces, Secuencia(List(Avanzar(pasos), Girar(giro))))
+```
+
+`rutina` tampoco recorre nada: solo construye una orden. Lo que la hace particular es que está currificada, o sea que recibe sus argumentos en tres grupos y cada grupo que se le da produce una función que espera los que faltan:
+
+* `rutina(1)` ya fijó los pasos y es una función que espera el giro y las veces.
+* `rutina(1)(Derecha)` fijó también el giro y es una función de `Int` en `Orden`: espera solo las veces.
+* `rutina(1)(Derecha)(2)` ya tiene todo y devuelve la orden `Repetir(2, Secuencia(List(Avanzar(1), Girar(Derecha))))`.
+
+```mermaid
+flowchart LR
+    A["rutina(1)<br/>espera giro y veces"] -->|"Derecha"| B["rutina(1)(Derecha)<br/>espera veces"]
+    B -->|"2"| C["Repetir(2, Secuencia(List(Avanzar(1), Girar(Derecha))))"]
+```
+
+Una nota práctica: el enunciado escribe `val cuadradoDe = rutina(1)(Derecha)`, pero en Scala 2.13 eso no compila tal cual, porque Scala no sabe que queremos la función que falta. Hay que escribir `rutina(1)(Derecha) _` o declarar el tipo, `val cuadradoDe: Int => Orden = rutina(1)(Derecha)`. Las pruebas usan la primera forma.
+
+Traza con posiciones del robot, ejecutando `rutina(1)(Derecha)(2)` desde `inicial = Estado(0, 0, Norte)`. La orden repite dos veces el par avanzar-girar, así que el robot hace cuatro movimientos:
+
+| Paso | Orden que se ejecuta | Estado |
+|------|----------------------|--------|
+| 0 | (todavía nada) | `Estado(0, 0, Norte)` |
+| 1 | `Avanzar(1)` | `Estado(0, 1, Norte)` |
+| 2 | `Girar(Derecha)` | `Estado(0, 1, Este)` |
+| 3 | `Avanzar(1)` | `Estado(1, 1, Este)` |
+| 4 | `Girar(Derecha)` | `Estado(1, 1, Sur)` |
+
+El estado final es `Estado(1, 1, Sur)`: el robot dio media vuelta al cuadrado. Si en vez de dos veces fueran cuatro, el recorrido sería el del cuadrado del enunciado, y los estados serían `(0,0,Norte)`, `(0,1,Norte)`, `(0,1,Este)`, `(1,1,Este)`, `(1,1,Sur)`, `(1,0,Sur)`, `(1,0,Oeste)`, `(0,0,Oeste)` y `(0,0,Norte)`: vuelve al punto de partida mirando a donde miraba.
+
+Con cero veces, o con un número negativo, `Repetir` no hace nada y el robot se queda en `Estado(0, 0, Norte)`.
+
+```mermaid
+sequenceDiagram
+    participant E0 as Estado(0, 0, Norte)
+    participant E1 as Estado(0, 1, Norte)
+    participant E2 as Estado(0, 1, Este)
+    participant E3 as Estado(1, 1, Este)
+    participant E4 as Estado(1, 1, Sur)
+    E0->>E1: Avanzar(1)
+    E1->>E2: Girar(Derecha)
+    E2->>E3: Avanzar(1)
+    E3->>E4: Girar(Derecha)
+```
+
+### `aplicarA`
+
+```scala
+def aplicarA(estados: List[Estado], o: Orden): List[Estado] =
+  estados match {
+    case Nil => Nil
+    case e :: resto => ejecutar(e, o) :: aplicarA(resto, o)
+  }
+```
+
+La función recorre la lista de estados con un caso por cada forma de la lista. Si está vacía no hay nada que ejecutar y devuelve la lista vacía. Si no, ejecuta la orden sobre el primer estado y le pega adelante el resultado de seguir con el resto. Cada estado se ejecuta por su cuenta: lo que le pase al robot de un estado no afecta al de otro, y la lista que sale tiene el mismo largo y el mismo orden que la de entrada.
+
+Traza con el modelo de sustitución, usando `aplicarA(List(Estado(0, 0, Norte), Estado(5, 5, Sur)), Avanzar(2))`:
+
+```scala
+aplicarA(List(Estado(0,0,Norte), Estado(5,5,Sur)), Avanzar(2))
+= ejecutar(Estado(0,0,Norte), Avanzar(2)) :: aplicarA(List(Estado(5,5,Sur)), Avanzar(2))
+= Estado(0,2,Norte) :: aplicarA(List(Estado(5,5,Sur)), Avanzar(2))
+= Estado(0,2,Norte) :: (ejecutar(Estado(5,5,Sur), Avanzar(2)) :: aplicarA(Nil, Avanzar(2)))
+= Estado(0,2,Norte) :: (Estado(5,3,Sur) :: Nil)
+= List(Estado(0,2,Norte), Estado(5,3,Sur))
+```
+
+La posición de cada robot en cada paso:
+
+| Paso | Estado que se ejecuta | Resultado |
+|------|-----------------------|-----------|
+| 1 | `Estado(0, 0, Norte)` | `Estado(0, 2, Norte)` |
+| 2 | `Estado(5, 5, Sur)` | `Estado(5, 3, Sur)` |
+
+El primer robot mira al norte y sube, así que `y` aumenta de 0 a 2. El segundo mira al sur y baja, así que `y` disminuye de 5 a 3. Es la misma orden, pero cada uno la cumple según hacia dónde mira.
+
+```mermaid
+flowchart LR
+    A["Estado(0, 0, Norte)"] -->|"Avanzar(2)"| B["Estado(0, 2, Norte)"]
+    C["Estado(5, 5, Sur)"] -->|"Avanzar(2)"| D["Estado(5, 3, Sur)"]
+```
+
+Como `cuantasBasicas` o `profundidad`, `aplicarA` es una recursión lineal: deja un llamado pendiente por cada estado de la lista (la suma de adelante queda esperando), así que la pila crece con el largo de la lista. Para las listas con las que se trabaja en el taller no es un problema.
+
+### `transformar`
+
+```scala
+def transformar(o: Orden, f: Orden => Orden): Orden = {
+  def transformarTodas(ordenes: List[Orden]): List[Orden] =
+    ordenes match {
+      case Nil => Nil
+      case primera :: resto => transformar(primera, f) :: transformarTodas(resto)
+    }
+
+  o match {
+    case Avanzar(_) => f(o)
+    case Girar(_) => f(o)
+    case Repetir(veces, orden) => Repetir(veces, transformar(orden, f))
+    case Secuencia(ordenes) => Secuencia(transformarTodas(ordenes))
+  }
+}
+```
+
+Recorre la orden con un caso por cada alternativa del tipo:
+
+* Si la orden es básica (`Avanzar` o `Girar`), le aplica `f` y devuelve lo que `f` dé.
+* Si es `Repetir`, deja las veces como estaban y transforma la orden de adentro.
+* Si es `Secuencia`, transforma cada orden de la lista, en el mismo orden, con la función auxiliar `transformarTodas` que va por dentro.
+
+`f` solo se aplica a las órdenes básicas, y el resultado de `f` no se vuelve a transformar: si `f` devuelve una orden compuesta, esa se queda tal cual.
+
+Traza con el modelo de sustitución, usando el cuadrado y una `f` que duplica los avances y deja los giros como están:
+
+```scala
+transformar(Repetir(4, Secuencia(List(Avanzar(1), Girar(Derecha)))), f)
+= Repetir(4, transformar(Secuencia(List(Avanzar(1), Girar(Derecha))), f))
+= Repetir(4, Secuencia(transformarTodas(List(Avanzar(1), Girar(Derecha)))))
+= Repetir(4, Secuencia(transformar(Avanzar(1), f) :: transformarTodas(List(Girar(Derecha)))))
+= Repetir(4, Secuencia(f(Avanzar(1)) :: transformar(Girar(Derecha), f) :: transformarTodas(Nil)))
+= Repetir(4, Secuencia(Avanzar(2) :: f(Girar(Derecha)) :: Nil))
+= Repetir(4, Secuencia(List(Avanzar(2), Girar(Derecha))))
+```
+
+```mermaid
+graph TD
+    A["Repetir(4, ...)"] --> B["Secuencia"]
+    B --> C["Avanzar(1) se vuelve Avanzar(2)"]
+    B --> D["Girar(Derecha) se queda igual"]
+```
+
+Y la traza de posiciones del robot, ejecutando desde `inicial` la orden original y la transformada. Cada fila es una orden básica que se ejecuta; la de la izquierda es la del cuadrado, y la de la derecha, la misma orden con los avances duplicados:
+
+| Paso | Orden original | Estado original | Orden transformada | Estado transformada |
+|------|----------------|-----------------|--------------------|---------------------|
+| 0 | (inicio) | `(0, 0, Norte)` | (inicio) | `(0, 0, Norte)` |
+| 1 | `Avanzar(1)` | `(0, 1, Norte)` | `Avanzar(2)` | `(0, 2, Norte)` |
+| 2 | `Girar(Derecha)` | `(0, 1, Este)` | `Girar(Derecha)` | `(0, 2, Este)` |
+| 3 | `Avanzar(1)` | `(1, 1, Este)` | `Avanzar(2)` | `(2, 2, Este)` |
+| 4 | `Girar(Derecha)` | `(1, 1, Sur)` | `Girar(Derecha)` | `(2, 2, Sur)` |
+| 5 | `Avanzar(1)` | `(1, 0, Sur)` | `Avanzar(2)` | `(2, 0, Sur)` |
+| 6 | `Girar(Derecha)` | `(1, 0, Oeste)` | `Girar(Derecha)` | `(2, 0, Oeste)` |
+| 7 | `Avanzar(1)` | `(0, 0, Oeste)` | `Avanzar(2)` | `(0, 0, Oeste)` |
+| 8 | `Girar(Derecha)` | `(0, 0, Norte)` | `Girar(Derecha)` | `(0, 0, Norte)` |
+
+Los dos recorridos tienen la misma forma: el robot siempre gira en los mismos momentos y vuelve al origen mirando al norte. La diferencia es el tamaño del cuadrado: el original es de lado 1 y el transformado de lado 2, justo lo que se esperaba al duplicar los avances y no tocar los giros.
 
 ## Punto 5 Informe de proceso: `simplificar`
 
